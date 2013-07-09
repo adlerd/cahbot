@@ -4,8 +4,11 @@ import irc "github.com/fluffle/goirc/client"
 import "fmt"
 import "cahbot"
 import "time"
+import "math/rand"
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	var remove irc.Remover
 	// Or, create a config and fiddle with it first:
 	cfg := irc.NewConfig(cahbot.IrcNick)

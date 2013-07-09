@@ -4,6 +4,7 @@ import irc "github.com/fluffle/goirc/client"
 import "container/ring"
 import "strings"
 import "fmt"
+import "time"
 
 const HAND_SIZE = 7
 
@@ -20,6 +21,7 @@ var (
 	users        map[string]*User = make(map[string]*User)
 	IrcChannel   string           = "##multiuse"
 	IrcNick      string           = "cahbot"
+	leaderCard *BlackCard
 	playedCards  []*WhiteCard
 	lenLessOne   int
 )
@@ -67,25 +69,29 @@ func userJoin(nick string, user *User, rest string, conn *irc.Conn) {
 	newRing := ring.New(1)
 	newRing.Value = user
 	joiningUsers = newRing.Link(joiningUsers)
-	conn.Privmsg(nick, "Succesfully joined. Not yet active.")
+	conn.Privmsg(nick, "Succesfully joined. (Not yet active, wait for next round.)")
 	MsgPrintF(conn, IrcChannel, "%s joined.", nick)
 	if activeUsers == nil {
-		nextRound(conn)
+		nextRound(conn, nil)
 	}
 }
 
-func nextRound(conn *irc.Conn) {
+func nextRound(conn *irc.Conn, wait <-chan time.Time) {
 	if activeUsers.Len()+joiningUsers.Len() < 2 {
 		conn.Privmsg(IrcChannel, "Not enough users to start.")
 		return
 	}
 	if joiningUsers != nil {
+		activeMsg := ""
+		activeMsgPrefix := "Now active:"
 		joiningUsers.Do(func(v interface{}) {
 			user := v.(*User)
 			user.Active = true
-			MsgPrintF(conn, IrcChannel, "%s now active!", user.Nick)
 			fillHand(user, conn)
+			activeMsg += fmt.Sprintf("%s %s", activeMsgPrefix, user.Nick)
+			activeMsgPrefix = ","
 		})
+		MsgPrintF(conn, IrcChannel, "%s.", activeMsg)
 		if activeUsers == nil {
 			activeUsers = joiningUsers
 		} else {
@@ -95,8 +101,12 @@ func nextRound(conn *irc.Conn) {
 	} else {
 		activeUsers = activeUsers.Next()
 	}
+	if wait != nil {
+		<- wait
+	}
 	leader := activeUsers.Value.(*User)
-	MsgPrintF(conn, IrcChannel, "%s is the leader!", leader.Nick)
+	leaderCard = nextBlackCard()
+	MsgPrintF(conn, IrcChannel, "%s is the leader! The black card is \"%s\"", leader.Nick, leaderCard.Text)
 	lenLessOne = activeUsers.Len() - 1
 	playedCards = make([]*WhiteCard, 0, lenLessOne)
 }
@@ -115,13 +125,14 @@ func leaderChoose(nick string, user *User, rest string, conn *irc.Conn) {
 		conn.Privmsg(nick, err)
 		return
 	}
-	MsgPrintF(conn, IrcChannel, "%s has chosen \"%s\"!", nick, card.Text)
+	MsgPrintF(conn, IrcChannel, "%s has chosen.", nick)
+	MsgPrintF(conn, IrcChannel, "\"%s\": \"%s\"", leaderCard.Text, card.Text)
 	for _, c := range playedCards {
 		c.Holder.Hand[c.Index] = nil
 		fillHand(c.Holder, conn)
 		discardCard(c)
 	}
-	nextRound(conn)
+	nextRound(conn,time.After(10*time.Second))
 }
 
 func namedCard(cards []*WhiteCard, rest string) (string, *WhiteCard, int) {
