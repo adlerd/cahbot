@@ -1,3 +1,6 @@
+/* Copyright (C) 2013 David Adler
+   (excluding card text, from cardsagainsthumanity.com) */
+
 package cahbot
 
 import "container/list"

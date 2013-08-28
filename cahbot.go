@@ -1,3 +1,5 @@
+/* Copyright (C) 2013 David Adler */
+
 package main
 
 import irc "github.com/fluffle/goirc/client"
@@ -10,7 +12,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	var remove irc.Remover
-	// Or, create a config and fiddle with it first:
+
 	cfg := irc.NewConfig(cahbot.IrcNick)
 	cfg.SSL = false
 	cfg.Server = "localhost:6667"
@@ -25,22 +27,18 @@ func main() {
 	}
 	c := irc.Client(cfg)
 
-	// Add handlers to do things here!
-	// e.g. join a channel on connect.
 	c.HandleFunc("connected",
 		func(conn *irc.Conn, line *irc.Line) { conn.Join(cahbot.IrcChannel) })
-	// And a signal on disconnect
+
 	quit := make(chan bool)
 	remove = c.HandleFunc("disconnected",
 		func(conn *irc.Conn, line *irc.Line) { quit <- true })
 
 	c.HandleFunc("PRIVMSG", cahbot.HandlePrivMsg)
 
-	// Tell client to connect.
 	if err := c.Connect(); err != nil {
 		fmt.Printf("Connection error: %s\n", err.Error())
 	}
 
-	// Wait for disconnect
 	<-quit
 }

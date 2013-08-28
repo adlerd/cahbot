@@ -1,3 +1,5 @@
+/* Copyright (C) 2013 David Adler */
+
 package cahbot
 
 import irc "github.com/fluffle/goirc/client"
