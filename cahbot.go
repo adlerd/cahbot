@@ -12,8 +12,8 @@ func main() {
 	var remove irc.Remover
 	// Or, create a config and fiddle with it first:
 	cfg := irc.NewConfig(cahbot.IrcNick)
-	cfg.SSL = true
-	cfg.Server = "irc.freenode.net:7000"
+	cfg.SSL = false
+	cfg.Server = "localhost:6667"
 	cfg.NewNick = func(n string) string { cahbot.IrcNick = n + "^"; return cahbot.IrcNick }
 	cfg.Recover = func(c *irc.Conn, l *irc.Line) {
 		if err := recover(); err != nil {

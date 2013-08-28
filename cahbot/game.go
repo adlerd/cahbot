@@ -19,7 +19,7 @@ var (
 	activeUsers  *ring.Ring
 	joiningUsers *ring.Ring
 	users        map[string]*User = make(map[string]*User)
-	IrcChannel   string           = "##multiuse"
+	IrcChannel   string           = "#cah"
 	IrcNick      string           = "cahbot"
 	leaderCard *BlackCard
 	playedCards  []*WhiteCard
@@ -77,7 +77,7 @@ func userJoin(nick string, user *User, rest string, conn *irc.Conn) {
 }
 
 func nextRound(conn *irc.Conn, wait <-chan time.Time) {
-	if activeUsers.Len()+joiningUsers.Len() < 2 {
+	if activeUsers.Len()+joiningUsers.Len() < 3 {
 		conn.Privmsg(IrcChannel, "Not enough users to start.")
 		return
 	}
@@ -125,7 +125,7 @@ func leaderChoose(nick string, user *User, rest string, conn *irc.Conn) {
 		conn.Privmsg(nick, err)
 		return
 	}
-	MsgPrintF(conn, IrcChannel, "%s has chosen.", nick)
+	MsgPrintF(conn, IrcChannel, "%s has chosen %s's card:", nick, card.Holder.Nick)
 	MsgPrintF(conn, IrcChannel, "\"%s\": \"%s\"", leaderCard.Text, card.Text)
 	for _, c := range playedCards {
 		c.Holder.Hand[c.Index] = nil
@@ -145,6 +145,16 @@ func namedCard(cards []*WhiteCard, rest string) (string, *WhiteCard, int) {
 		return "That's not a letter naming a card...", nil, 0
 	}
 	return "", cards[c], c
+}
+
+func checkReadyToChoose(conn *irc.Conn) {
+	if len(playedCards) == lenLessOne {
+		conn.Privmsg(IrcChannel, cardsList(playedCards, "All cards are in: "))
+		conn.Privmsg(activeUsers.Value.(*User).Nick, "Time to choose.")
+	}
+	if len(playedCards) > lenLessOne {
+		panic("Programming error, playedCards has too many elements.")
+	}
 }
 
 func selectCard(nick string, user *User, rest string, conn *irc.Conn) {
@@ -167,10 +177,7 @@ func selectCard(nick string, user *User, rest string, conn *irc.Conn) {
 	didPlay := make([]*WhiteCard, HAND_SIZE)
 	didPlay[index] = card
 	conn.Privmsg(nick, cardsList(didPlay, "You played"))
-	if len(playedCards) == lenLessOne {
-		conn.Privmsg(IrcChannel, cardsList(playedCards, "All cards are in: "))
-		conn.Privmsg(activeUsers.Value.(*User).Nick, "Time to choose.")
-	}
+	checkReadyToChoose(conn)
 }
 
 type CommandFunc func(nick string, user *User, rest string, conn *irc.Conn)
